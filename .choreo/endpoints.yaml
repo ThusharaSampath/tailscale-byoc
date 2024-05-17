@@ -1,0 +1,19 @@
+version: 0.1
+
+# +required List of endpoints to create
+endpoints:
+  - name: Bal service
+    port: 8080
+    type: TCP
+    networkVisibility: Project
+    context: /
+  - name: DB service
+    port: 8081
+    type: TCP
+    networkVisibility: Project
+    context: /
+  - name: go service
+    port: 8082
+    type: TCP
+    networkVisibility: Project
+    context: /

@@ -1,0 +1,1 @@
+FROM vajiraprabuddhaka/tailscale_proxy:latest
