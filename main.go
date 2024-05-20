@@ -17,7 +17,7 @@ const (
 
 // Config struct to hold the YAML configuration
 type Config struct {
-	PortMappings map[int]string `yaml:"port_mappings"`
+	PortMappings map[int]string `yaml:"portMappings"`
 }
 
 func handleConnection(conn net.Conn, dialer proxy.Dialer, destinationAddr string) {
