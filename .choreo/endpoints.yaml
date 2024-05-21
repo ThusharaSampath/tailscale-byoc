@@ -5,10 +5,10 @@ endpoints:
   - name: Private Bal service
     port: 8080
     type: TCP
-    networkVisibility: Project
+    networkVisibility: Public
     context: /
   - name: Private DB service
     port: 8081
     type: TCP
-    networkVisibility: Project
+    networkVisibility: Public
     context: /
