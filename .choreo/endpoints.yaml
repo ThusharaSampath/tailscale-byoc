@@ -4,8 +4,8 @@ version: 0.1
 endpoints:
   - name: Private Bal service
     port: 8080
-    type: REST
-    networkVisibility: Public
+    type: TCP
+    networkVisibility: Project
     context: /
 #  - name: Private DB service
 #    port: 8081
