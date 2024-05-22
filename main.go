@@ -79,7 +79,7 @@ func main() {
 
 	// Listen on each port specified in the configuration
 	for port, destinationAddr := range config.PortMappings {
-		listenAddr := fmt.Sprintf("0.0.0.0:%d", port)
+		listenAddr := fmt.Sprintf(":%d", port)
 		go func(listenAddr, destinationAddr string) {
 			listener, err := net.Listen("tcp", listenAddr)
 			if err != nil {
