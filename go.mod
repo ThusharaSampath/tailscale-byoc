@@ -1,6 +1,6 @@
 module tailscale_proxy
 
-go 1.22.2
+go 1.22.3
 
 require golang.org/x/net v0.24.0
 
