@@ -26,7 +26,7 @@ TAILSCALE_UP_PID=$!
 
 # Function to check if tailscale up is ready
 check_tailscale_up() {
-  if tailscale status | grep -q '100.64.'; then
+  if /app/tailscale status | grep -q '100.'; then
     return 0
   else
     return 1
