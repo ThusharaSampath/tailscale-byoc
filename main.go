@@ -77,7 +77,6 @@ func main() {
 		log.Fatalf("Failed to connect to SOCKS5 proxy: %v", err)
 	}
 
-	// Listen on each port specified in the configuration
 	for port, destinationAddr := range config.PortMappings {
 		listenAddr := fmt.Sprintf("0.0.0.0:%d", port)
 		go func(listenAddr, destinationAddr string) {
@@ -88,7 +87,6 @@ func main() {
 			defer listener.Close()
 			log.Printf("Listening on %s and forwarding to %s via proxy %s", listenAddr, destinationAddr, proxyAddr)
 
-			// Accept connections and handle them
 			for {
 				conn, err := listener.Accept()
 				if err != nil {

@@ -2,8 +2,13 @@ version: 0.1
 
 # +required List of endpoints to create
 endpoints:
-  - name: Private Bal service
+  - name: Private service
     port: 8080
+    type: TCP
+    networkVisibility: Project
+    context: /
+  - name: Private service http
+    port: 1055
     type: TCP
     networkVisibility: Project
     context: /
