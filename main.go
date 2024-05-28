@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"os"
 
 	"golang.org/x/net/proxy"
@@ -12,12 +13,35 @@ import (
 )
 
 const (
-	proxyAddr = "localhost:1055"
+	proxyAddr     = "localhost:1055"
+	healthPort    = "8000" // Port for health checks
+	healthPath    = "/healthz"
+	readinessPath = "/readiness"
 )
 
 // Config struct to hold the YAML configuration
 type Config struct {
 	PortMappings map[int]string `yaml:"portMappings"`
+}
+
+func healthzHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	_, err := fmt.Fprintln(w, "ok")
+	if err != nil {
+		log.Printf("Error writing healthz response: %v", err)
+		return
+	}
+}
+
+func readinessHandler(w http.ResponseWriter, r *http.Request) {
+	// Here you might want to add some checks to see if your application is ready
+	// For simplicity, we return OK
+	w.WriteHeader(http.StatusOK)
+	_, err := fmt.Fprintln(w, "ready")
+	if err != nil {
+		log.Printf("Error writing readiness response: %v", err)
+		return
+	}
 }
 
 func handleConnection(conn net.Conn, dialer proxy.Dialer, destinationAddr string) {
@@ -97,6 +121,16 @@ func main() {
 			}
 		}(listenAddr, destinationAddr)
 	}
+
+	// Start HTTP server for health checks
+	http.HandleFunc(healthPath, healthzHandler)
+	http.HandleFunc(readinessPath, readinessHandler)
+	go func() {
+		log.Printf("Starting health check server on port %s", healthPort)
+		if err := http.ListenAndServe(":"+healthPort, nil); err != nil {
+			log.Fatalf("Failed to start health check server: %v", err)
+		}
+	}()
 
 	select {}
 }
