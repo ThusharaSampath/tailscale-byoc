@@ -4,8 +4,8 @@ version: 0.1
 endpoints:
   - name: Private service
     port: 8080
-    type: TCP
-    networkVisibility: Project
+    type: REST
+    networkVisibility: Public
     context: /
 #  - name: Private DB service
 #    port: 8081
