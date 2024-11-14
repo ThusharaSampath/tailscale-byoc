@@ -64,7 +64,7 @@ echo "starting tcp-forwarder..."
 # check if config file exists
 CONFIG_PATH='/config.yaml'
 
-if [ -f "config.yaml" ]; then
+if [ -f "/config.yaml" ]; then
   echo "config.yaml exists."
 elif [ -f "Config.yaml" ]; then
   echo "Config.yaml exists."
