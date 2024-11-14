@@ -18,7 +18,7 @@ for dir in $dirs; do
   fi
 done
 
-/tailscaled --tun=userspace-networking --socks5-server=0.0.0.0:1055 --outbound-http-proxy-listen=0.0.0.0:1055 &
+/app/tailscaled --tun=userspace-networking --socks5-server=0.0.0.0:1055 --outbound-http-proxy-listen=0.0.0.0:1055 &
 TAILSCALED_PID=$!
 
 # Function to check if tailscaled is ready
@@ -39,7 +39,7 @@ done
 echo "tailscaled is running."
 
 
-/tailscale up --authkey=$TS_AUTH_KEY --shields-up &
+/app/tailscale up --authkey=$TS_AUTH_KEY &
 TAILSCALE_UP_PID=$!
 
 # Function to check if tailscale up is ready
