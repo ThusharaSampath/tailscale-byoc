@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -42,8 +43,11 @@ func handleConnection(conn net.Conn, dialer proxy.Dialer, destinationAddr string
 }
 
 func main() {
-	// Read the configs
-	file, err := os.Open("/Config.yaml")
+
+	configPath := flag.String("config", "config.yaml", "path to the config file")
+	flag.Parse()
+
+	file, err := os.Open(*configPath)
 	if err != nil {
 		log.Fatalf("error opening config file: %v", err)
 	}
@@ -63,7 +67,6 @@ func main() {
 		log.Fatalf("error: %v", err)
 	}
 
-	// Unmarshal the YAML into the Config struct
 	var config Config
 	err = yaml.Unmarshal(fileContent, &config)
 	if err != nil {
