@@ -1,13 +1,25 @@
-FROM golang:1.23.3-alpine3.20 as tailscale
+FROM golang:1.23.3-alpine3.20
 
 RUN mkdir /app
 
 WORKDIR /app
 
-ARG TAILSCALE_VERSION
-RUN wget https://pkgs.tailscale.com/stable/tailscale_${TAILSCALE_VERSION}_amd64.tgz && \
-  tar xzf tailscale_${TAILSCALE_VERSION}_amd64.tgz --strip-components=1 && \
-  rm tailscale_${TAILSCALE_VERSION}_amd64.tgz
+ENV TSFILE=tailscale_1.66.1_amd64.tgz
+
+# install curl
+RUN apk add --no-cache curl
+
+RUN wget https://pkgs.tailscale.com/stable/${TSFILE} && \
+  tar xzf ${TSFILE} --strip-components=1 && \
+  rm ${TSFILE}
+
+RUN mkdir -p /var/run/tailscale /var/cache/tailscale /var/lib/tailscale
+
+# Create a new user with UID 10014
+RUN addgroup -g 10014 choreo && \
+    adduser  --disabled-password --uid 10014 --ingroup choreo choreouser
+
+RUN chown -R 10014 /var/run/tailscale /var/cache/tailscale /var/lib/tailscale
 
 # Download Go modules
 COPY go.mod ./
@@ -19,16 +31,16 @@ COPY *.go ./
 # Build go program
 RUN CGO_ENABLED=0 GOOS=linux go build -o /proxy-pass
 
-from alpine:3.20
-COPY --from=tailscale /proxy-pass /proxy-pass
-COPY --from=tailscale /app/tailscaled /tailscaled
-COPY --from=tailscale /app/tailscale /tailscale
-RUN mkdir -p /var/run/tailscale /var/cache/tailscale /var/lib/tailscale
-
 EXPOSE 1055 8080
+
+RUN mkdir /home/wso2
+
+WORKDIR /home/wso2
 
 COPY start.sh .
 
 RUN chmod +x start.sh
 
-ENTRYPOINT ["./start.sh"]
+USER 10014
+
+CMD ["/home/wso2/start.sh"]
