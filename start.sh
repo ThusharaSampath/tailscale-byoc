@@ -74,4 +74,4 @@ else
   exit 1
 fi
 
-./proxy-pass -config=$CONFIG_PATH
+/proxy-pass -config=$CONFIG_PATH
