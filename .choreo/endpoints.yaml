@@ -7,8 +7,8 @@ endpoints:
     type: TCP
     networkVisibility: Project
     context: /
-#  - name: Private DB service
-#    port: 8081
-#    type: TCP
-#    networkVisibility: Project
-#    context: /
+  - name: Private DB service
+    port: 8081
+    type: TCP
+    networkVisibility: Project
+    context: /
