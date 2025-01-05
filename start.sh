@@ -52,7 +52,7 @@ done
 echo "tailscaled is running."
 
 
-/app/tailscale up --auth-key="$AUTH_KEY" &
+/app/tailscale up --auth-key="$AUTH_KEY" --advertise-tags=tag:choreo-ci &
 TAILSCALE_UP_PID=$!
 
 # Function to check if tailscale up is ready
