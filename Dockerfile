@@ -4,7 +4,7 @@ RUN mkdir /app
 
 WORKDIR /app
 
-ENV TSFILE=tailscale_1.76.6_amd64.tgz
+ENV TSFILE=tailscale_1.78.1_amd64.tgz
 
 # install curl
 RUN apk add --no-cache curl
