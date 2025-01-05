@@ -1,10 +1,23 @@
 #!/bin/sh
 
-# check if the TS_AUTH_KEY has set
-if [ -z "${TS_AUTH_KEY}" ]; then
-  echo "Error: TS_AUTH_KEY env variable could not be found. Exiting... Please refer to the documentation: https://wso2.com/choreo/docs/devops-and-ci-cd/configure-vpns-on-the-choreo-cloud-data-plane/#step-2-configure-and-deploy-the-tailscale-proxy"
-  exit 1
+
+AUTH_KEY=""
+
+# check if the OAUTH_CLIENT_SECRET has set
+if [ -n "${OAUTH_CLIENT_SECRET}" ]; then
+  echo "OAUTH_CLIENT_SECRET env variable is found: Hence Tailscale proxy will use the OAUTH_CLIENT_SECRET for authentication."
+  AUTH_KEY=$OAUTH_CLIENT_SECRET
+else
+  # check if the TS_AUTH_KEY has set
+  if [ -n "${TS_AUTH_KEY}" ]; then
+    echo "OAUTH_CLIENT_SECRET env variable is not found. But TS_AUTH_KEY env variable is found: Hence Tailscale proxy will use the TS_AUTH_KEY for authentication."
+    AUTH_KEY=$TS_AUTH_KEY
+  else
+    echo "Error: OAUTH_CLIENT_SECRET or TS_AUTH_KEY env variable could not be found. Exiting... Please refer to the documentation: https://wso2.com/choreo/docs/devops-and-ci-cd/configure-vpns-on-the-choreo-cloud-data-plane/#step-2-configure-and-deploy-the-tailscale-proxy"
+    exit 1
+  fi
 fi
+
 
 # check if the volume mounts are added
 dirs="/.local /var/run/tailscale"
@@ -39,7 +52,7 @@ done
 echo "tailscaled is running."
 
 
-/app/tailscale up --authkey=$TS_AUTH_KEY &
+/app/tailscale up --auth-key="$AUTH_KEY" &
 TAILSCALE_UP_PID=$!
 
 # Function to check if tailscale up is ready
