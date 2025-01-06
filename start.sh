@@ -51,9 +51,13 @@ done
 
 echo "tailscaled is running."
 
-
-/app/tailscale up --auth-key="$AUTH_KEY" --advertise-tags=tag:choreo-ci &
-TAILSCALE_UP_PID=$!
+if [ -n "${OAUTH_CLIENT_SECRET}" ]; then
+  /app/tailscale up --auth-key="$AUTH_KEY" --advertise-tags=tag:choreo-ci --shields-up &
+  TAILSCALE_UP_PID=$!
+else
+  /app/tailscale up --auth-key="$AUTH_KEY" --shields-up &
+  TAILSCALE_UP_PID=$!
+fi
 
 # Function to check if tailscale up is ready
 check_tailscale_up() {
