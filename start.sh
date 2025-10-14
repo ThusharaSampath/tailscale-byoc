@@ -20,7 +20,8 @@ fi
 
 
 # check if the volume mounts are added
-dirs="/.local /var/run/tailscale"
+# Note: Using /var/lib/tailscale for state and /var/run/tailscale for socket
+dirs="/var/lib/tailscale /var/run/tailscale"
 
 for dir in $dirs; do
   if [ -w "$dir" ]; then
@@ -31,7 +32,7 @@ for dir in $dirs; do
   fi
 done
 
-/app/tailscaled --tun=userspace-networking --socks5-server=0.0.0.0:1055 --outbound-http-proxy-listen=0.0.0.0:1055 &
+/app/tailscaled --tun=userspace-networking --socks5-server=0.0.0.0:1055 --outbound-http-proxy-listen=0.0.0.0:1055 --statedir=/var/lib/tailscale --state=/var/lib/tailscale/tailscaled.state --socket=/var/run/tailscale/tailscaled.sock &
 TAILSCALED_PID=$!
 
 # Function to check if tailscaled is ready
@@ -52,16 +53,16 @@ done
 echo "tailscaled is running."
 
 if [ -n "${OAUTH_CLIENT_SECRET}" ]; then
-  /app/tailscale up --auth-key="$AUTH_KEY" --advertise-tags=tag:choreo-ci --shields-up &
+  /app/tailscale --socket=/var/run/tailscale/tailscaled.sock up --auth-key="$AUTH_KEY" --advertise-tags=tag:choreo-ci --shields-up &
   TAILSCALE_UP_PID=$!
 else
-  /app/tailscale up --auth-key="$AUTH_KEY" --shields-up &
+  /app/tailscale --socket=/var/run/tailscale/tailscaled.sock up --auth-key="$AUTH_KEY" --shields-up &
   TAILSCALE_UP_PID=$!
 fi
 
 # Function to check if tailscale up is ready
 check_tailscale_up() {
-  if /app/tailscale status | grep -q '100.'; then
+  if /app/tailscale --socket=/var/run/tailscale/tailscaled.sock status | grep -q '100.'; then
     return 0
   else
     return 1
