@@ -32,7 +32,11 @@ for dir in $dirs; do
   fi
 done
 
-/app/tailscaled --tun=userspace-networking --socks5-server=0.0.0.0:1055 --outbound-http-proxy-listen=0.0.0.0:1055 --statedir=/var/lib/tailscale --state=/var/lib/tailscale/tailscaled.state --socket=/var/run/tailscale/tailscaled.sock &
+# Create subdirectories within the mounted volumes
+# This avoids chmod errors on the mount point itself
+mkdir -p /var/lib/tailscale/state /var/run/tailscale/sock 2>/dev/null || true
+
+/app/tailscaled --tun=userspace-networking --socks5-server=0.0.0.0:1055 --outbound-http-proxy-listen=0.0.0.0:1055 --statedir=/var/lib/tailscale/state --state=/var/lib/tailscale/state/tailscaled.state --socket=/var/run/tailscale/sock/tailscaled.sock &
 TAILSCALED_PID=$!
 
 # Function to check if tailscaled is ready
@@ -53,16 +57,16 @@ done
 echo "tailscaled is running."
 
 if [ -n "${OAUTH_CLIENT_SECRET}" ]; then
-  /app/tailscale --socket=/var/run/tailscale/tailscaled.sock up --auth-key="$AUTH_KEY" --advertise-tags=tag:choreo-ci --shields-up &
+  /app/tailscale --socket=/var/run/tailscale/sock/tailscaled.sock up --auth-key="$AUTH_KEY" --advertise-tags=tag:choreo-ci --shields-up &
   TAILSCALE_UP_PID=$!
 else
-  /app/tailscale --socket=/var/run/tailscale/tailscaled.sock up --auth-key="$AUTH_KEY" --shields-up &
+  /app/tailscale --socket=/var/run/tailscale/sock/tailscaled.sock up --auth-key="$AUTH_KEY" --shields-up &
   TAILSCALE_UP_PID=$!
 fi
 
 # Function to check if tailscale up is ready
 check_tailscale_up() {
-  if /app/tailscale --socket=/var/run/tailscale/tailscaled.sock status | grep -q '100.'; then
+  if /app/tailscale --socket=/var/run/tailscale/sock/tailscaled.sock status | grep -q '100.'; then
     return 0
   else
     return 1

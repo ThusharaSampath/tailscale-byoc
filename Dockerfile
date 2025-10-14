@@ -19,7 +19,8 @@ RUN mkdir -p /var/run/tailscale /var/cache/tailscale /var/lib/tailscale /home/ch
 RUN addgroup -g 10014 choreo && \
     adduser  --disabled-password --uid 10014 --ingroup choreo choreouser
 
-RUN chown -R 10014:10014 /var/run/tailscale /var/cache/tailscale /var/lib/tailscale /home/choreouser
+RUN chown -R 10014:10014 /var/run/tailscale /var/cache/tailscale /var/lib/tailscale /home/choreouser && \
+    chmod -R 755 /var/run/tailscale /var/cache/tailscale /var/lib/tailscale
 
 # Download Go modules
 COPY go.mod ./
