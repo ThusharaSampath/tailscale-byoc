@@ -1,0 +1,8 @@
+Oct 8, 2025 @ 21:53:57.148
+
+
+error: Error in SQL connector configuration: Failed to initialize pool: Connection reset ClientConnectionId:c32d6eb1-c0b7-49c9-b5a8-7828ef7b8491 Caused by :Connection reset ClientConnectionId:c32d6eb1-c0b7-49c9-b5a8-7828ef7b8491 Caused by :Connection reset
+	Oct 8, 2025 @ 21:53:18.059
+
+
+error: Error in SQL connector configuration: Failed to initialize pool: Connection reset ClientConnectionId:6b713b8d-b6a7-49be-a33c-a7c5577d4348 Caused by :Connection reset ClientConnectionId:6b713b8d-b6a7-49be-a33c-a7c5577d4348 Caused by :Connection reset
