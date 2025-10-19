@@ -1,0 +1,124 @@
+openapi: 3.0.0
+info:
+  title: Database Health Check Service
+  description: |
+    A health check service that monitors database connectivity via Tailscale.
+    This service performs periodic database queries to validate connection stability 
+    and provides health status and statistics endpoints.
+  version: 0.1.0
+  contact:
+    name: WSO2
+    email: support@wso2.com
+
+servers:
+  - url: http://localhost:9090
+    description: Local development server
+  - url: https://api.choreo.dev
+    description: Choreo production server
+
+tags:
+  - name: Health
+    description: Health check and monitoring endpoints
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Database health check
+      description: |
+        Performs a simple database connectivity check by executing a SELECT 1 query.
+        Returns 200 OK if the database is accessible, 500 Internal Server Error otherwise.
+      operationId: getHealth
+      responses:
+        '200':
+          description: Database is healthy and accessible
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                    description: Health status of the database
+        '500':
+          description: Database is not accessible or experiencing issues
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /stats:
+    get:
+      tags:
+        - Health
+      summary: Get health check statistics
+      description: |
+        Returns comprehensive statistics about the database health checks including:
+        - Total number of queries executed
+        - Successful and failed query counts
+        - Success rate percentage
+        - Elapsed time since monitoring started
+        - Error count
+      operationId: getStats
+      responses:
+        '200':
+          description: Successfully retrieved statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Statistics'
+
+components:
+  schemas:
+    Statistics:
+      type: object
+      properties:
+        totalQueries:
+          type: integer
+          description: Total number of database queries executed
+          example: 150
+        successfulQueries:
+          type: integer
+          description: Number of successful database queries
+          example: 148
+        failedQueries:
+          type: integer
+          description: Number of failed database queries
+          example: 2
+        successRate:
+          type: number
+          format: double
+          description: Success rate as a percentage
+          example: 98.67
+        elapsedSeconds:
+          type: number
+          format: double
+          description: Total elapsed time since monitoring started (in seconds)
+          example: 600.5
+        errorCount:
+          type: integer
+          description: Number of unique error types encountered
+          example: 1
+      required:
+        - totalQueries
+        - successfulQueries
+        - failedQueries
+        - successRate
+        - elapsedSeconds
+        - errorCount
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Error message describing what went wrong
+          example: "Database connection failed"
+        code:
+          type: string
+          description: Error code for categorization
+          example: "DB_CONNECTION_ERROR"
+      required:
+        - message
