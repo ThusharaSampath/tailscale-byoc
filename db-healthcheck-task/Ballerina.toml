@@ -1,0 +1,18 @@
+[package]
+org = "wso2"
+name = "db_healthcheck_task"
+version = "0.1.0"
+distribution = "2201.12.3"
+
+[build-options]
+observabilityIncluded = true
+
+[[dependency]]
+org = "ballerinax"
+name = "mssql"
+version = "1.15.0"
+
+[[platform.java17.dependency]]
+groupId = "com.microsoft.sqlserver"
+artifactId = "mssql-jdbc"
+version = "12.2.0.jre11"
