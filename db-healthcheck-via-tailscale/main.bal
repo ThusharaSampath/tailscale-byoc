@@ -86,10 +86,14 @@ function startHealthCheckService(mssql:Client dbClient) returns error? {
 function httpService(mssql:Client dbClient) returns error? {
     http:Service healthService = service object {
         resource function get health() returns http:Ok|http:InternalServerError {
-            sql:ExecutionResult|sql:Error result = dbClient->execute(`SELECT 1`);
-            if result is sql:Error {
+            log:printInfo("Received health check request");
+            stream<record {}, sql:Error?> resultStream = dbClient->query(`SELECT 1 as result`);
+            error? closeResult = resultStream.close();
+            if closeResult is error {
+                log:printError(string `Health check failed: ${closeResult.message()}`);
                 return http:INTERNAL_SERVER_ERROR;
             }
+            log:printInfo("Health check succeeded");
             return http:OK;
         }
 
