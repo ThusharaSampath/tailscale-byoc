@@ -1,4 +1,5 @@
 import ballerina/ftp;
+import ballerina/http;
 import ballerina/log;
 import ballerina/sql;
 import ballerina/time;
@@ -18,6 +19,40 @@ configurable int ftpPort = 21;
 configurable string ftpUsername = "ftpuser";
 configurable string ftpPassword = ?;
 configurable string ftpTestPath = "/"; // Path to test (list or check)
+
+// Google Chat Notification Configuration
+configurable boolean enableChatNotification = false;
+configurable string googleChatWebhookUrl = "";
+
+// Function to send Google Chat notification
+function sendGoogleChatNotification(string message) returns error? {
+    if !enableChatNotification || googleChatWebhookUrl == "" {
+        return;
+    }
+
+    log:printInfo("Sending notification to Google Chat...");
+
+    http:Client chatClient = check new (googleChatWebhookUrl);
+
+    json payload = {
+        "text": message
+    };
+
+    http:Response|error response = chatClient->post("", payload);
+
+    if response is error {
+        log:printError(string `Failed to send Google Chat notification: ${response.message()}`);
+        return response;
+    }
+
+    if response.statusCode == 200 {
+        log:printInfo("✓ Notification sent to Google Chat successfully");
+    } else {
+        log:printWarn(string `Google Chat notification returned status: ${response.statusCode}`);
+    }
+
+    return;
+}
 
 // FTP Health Check Function
 function performFtpHealthCheck() returns error? {
@@ -200,11 +235,14 @@ public function main() returns error? {
 
     time:Utc overallStartTime = time:utcNow();
     boolean hasErrors = false;
+    string[] errorMessages = [];
 
     // Perform Database Health Check
     error? dbResult = performDatabaseHealthCheck();
     if dbResult is error {
-        log:printError(string `Database health check failed: ${dbResult.message()}`);
+        string dbError = string `Database health check failed: ${dbResult.message()}`;
+        log:printError(dbError);
+        errorMessages.push(dbError);
         hasErrors = true;
     }
 
@@ -212,7 +250,9 @@ public function main() returns error? {
     if enableFtpCheck {
         error? ftpResult = performFtpHealthCheck();
         if ftpResult is error {
-            log:printError(string `FTP health check failed: ${ftpResult.message()}`);
+            string ftpError = string `FTP health check failed: ${ftpResult.message()}`;
+            log:printError(ftpError);
+            errorMessages.push(ftpError);
             hasErrors = true;
         }
     } else {
@@ -224,6 +264,18 @@ public function main() returns error? {
     
     if hasErrors {
         log:printError(string `Health Check Task FAILED - Total execution time: ${(overallTime * 1000).toString()}ms`);
+        
+        // Send Google Chat notification on failure
+        string notificationMessage = string `🔴 *Health Check Failed*\n\n` +
+            string `*Errors:*\n${string:'join("\n", ...errorMessages)}\n\n` +
+            string `*Execution Time:* ${(overallTime * 1000).toString()}ms\n` +
+            string `*Timestamp:* ${time:utcToString(time:utcNow())}`;
+        
+        error? notificationResult = sendGoogleChatNotification(notificationMessage);
+        if notificationResult is error {
+            log:printWarn("Failed to send failure notification to Google Chat");
+        }
+        
         return error("One or more health checks failed");
     }
 

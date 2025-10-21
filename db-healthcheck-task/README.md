@@ -33,6 +33,19 @@ ftpPassword = "ftppassword"
 ftpTestPath = "/"  # Path to test (e.g., "/" or "/uploads")
 ```
 
+### Google Chat Notification Configuration
+```toml
+enableChatNotification = true  # Set to true to enable Google Chat notifications on failure
+googleChatWebhookUrl = "https://chat.googleapis.com/v1/spaces/AAAA7zkSoZA/messages?key=...&token=..."
+```
+
+To get your Google Chat webhook URL:
+1. Open Google Chat and go to the space where you want notifications
+2. Click the space name → Apps & integrations
+3. Click "Add webhooks"
+4. Name your webhook (e.g., "Health Check Alerts")
+5. Copy the webhook URL
+
 ## Running the Task
 
 ```bash
@@ -47,6 +60,9 @@ bal run -- --enableFtpCheck=true --ftpHost=ftp.example.com --ftpUsername=user --
 
 # Run with all custom config
 bal run -- --host=localhost --port=1433 --username=sa --password=yourpass --database=master --enableFtpCheck=true --ftpHost=ftp.example.com --ftpPort=21 --ftpUsername=ftpuser --ftpPassword=ftppass --ftpTestPath=/
+
+# Run with Google Chat notifications enabled
+bal run -- --enableChatNotification=true --googleChatWebhookUrl="https://chat.googleapis.com/v1/spaces/..."
 ```
 
 ## Output
