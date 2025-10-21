@@ -97,14 +97,21 @@ Test Path:          ${ftpTestPath}
 
     log:printInfo("✓ FTP connection established");
 
-    // Test FTP operations - list directory
-    log:printInfo(string `Listing directory: ${ftpTestPath}`);
+    // Test FTP operations - list directory or get file info
+    log:printInfo(string `Testing SFTP access on path: ${ftpTestPath}`);
     time:Utc listStartTime = time:utcNow();
 
-    ftp:FileInfo[]|error fileList = ftpClient->list(ftpTestPath);
+    // For SFTP, try listing the current working directory instead of root
+    string testPath = ftpTestPath;
+    if protocol == ftp:SFTP && ftpTestPath == "/" {
+        testPath = ".";  // Use current directory for SFTP
+        log:printInfo("Using current directory (.) for SFTP listing");
+    }
+
+    ftp:FileInfo[]|error fileList = ftpClient->list(testPath);
 
     if fileList is error {
-        log:printError(string `✗ FAILED to list FTP directory: ${fileList.message()}`);
+        log:printError(string `✗ FAILED to list SFTP directory: ${fileList.message()}`);
         return fileList;
     }
 
