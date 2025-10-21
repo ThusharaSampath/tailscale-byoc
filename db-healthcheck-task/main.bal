@@ -72,8 +72,8 @@ Test Path:          ${ftpTestPath}
     // Create FTP client configuration
     log:printInfo("Attempting to connect to FTP server...");
     
-    // Determine protocol based on port (22 = SFTP, 21 = FTP)
-    ftp:Protocol protocol = ftpPort == 22 ? ftp:SFTP : ftp:FTP;
+    // Determine protocol based on port (22 or 2022 = SFTP, 21 or 2021 = FTP)
+    ftp:Protocol protocol = ftpPort == 22 || ftpPort == 2022 ? ftp:SFTP : ftp:FTP;
     log:printInfo(string `Using protocol: ${protocol.toString()}`);
     
     ftp:ClientConfiguration ftpConfig = {
