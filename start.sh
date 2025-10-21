@@ -81,6 +81,39 @@ done
 
 echo "tailscale up is complete."
 
+# Start Tailscale health monitor in background
+monitor_tailscale() {
+  echo "Starting Tailscale health monitor..."
+  while true; do
+    # Check if tailscaled process is running
+    if ! pgrep -f tailscaled > /dev/null; then
+      echo "ERROR: tailscaled process died! Exiting pod..."
+      kill -TERM $PROXY_PASS_PID 2>/dev/null || true
+      exit 1
+    fi
+    
+    # Check if tailscale is responding (checks if daemon is functional)
+    if ! /app/tailscale --socket=/var/run/tailscale/sock/tailscaled.sock status &> /dev/null; then
+      echo "ERROR: tailscale daemon is not responding! Exiting pod..."
+      kill -TERM $PROXY_PASS_PID 2>/dev/null || true
+      exit 1
+    fi
+    
+    # Check if tailscale connection is active (has IP assigned)
+    if ! /app/tailscale --socket=/var/run/tailscale/sock/tailscaled.sock status | grep -q '100.'; then
+      echo "ERROR: tailscale connection lost (no IP assigned)! Exiting pod..."
+      kill -TERM $PROXY_PASS_PID 2>/dev/null || true
+      exit 1
+    fi
+    
+    sleep 10
+  done
+}
+
+# Start the health monitor in background
+monitor_tailscale &
+MONITOR_PID=$!
+
 echo "starting tcp-forwarder..."
 
 # check if config file exists
@@ -96,4 +129,18 @@ else
   exit 1
 fi
 
-/proxy-pass -config=$CONFIG_PATH
+# Start proxy-pass and store its PID
+/proxy-pass -config=$CONFIG_PATH &
+PROXY_PASS_PID=$!
+
+# Wait for either proxy-pass or monitor to exit
+# If either exits, we need to terminate everything
+wait -n $PROXY_PASS_PID $MONITOR_PID
+EXIT_CODE=$?
+
+# Something exited - kill everything and exit
+echo "Process terminated - cleaning up..."
+kill $PROXY_PASS_PID 2>/dev/null || true
+kill $MONITOR_PID 2>/dev/null || true
+
+exit $EXIT_CODE

@@ -1,19 +1,109 @@
+import ballerina/ftp;
 import ballerina/log;
 import ballerina/sql;
 import ballerina/time;
 import ballerinax/mssql;
 
-// Configurable parameters
+// Database Configurable parameters
 configurable string host = "localhost";
 configurable int port = 1433;
 configurable string username = "sa";
 configurable string password = ?;
 configurable string database = "master";
 
-public function main() returns error? {
+// FTP Configurable parameters
+configurable boolean enableFtpCheck = true;
+configurable string ftpHost = "localhost";
+configurable int ftpPort = 21;
+configurable string ftpUsername = "ftpuser";
+configurable string ftpPassword = ?;
+configurable string ftpTestPath = "/"; // Path to test (list or check)
+
+// FTP Health Check Function
+function performFtpHealthCheck() returns error? {
     log:printInfo(string `
 ========================================
-Database Health Check Task
+FTP Server Health Check
+========================================
+Host:               ${ftpHost}
+Port:               ${ftpPort}
+Username:           ${ftpUsername}
+Test Path:          ${ftpTestPath}
+========================================
+`);
+
+    time:Utc ftpStartTime = time:utcNow();
+
+    // Create FTP client configuration
+    log:printInfo("Attempting to connect to FTP server...");
+    
+    ftp:ClientConfiguration ftpConfig = {
+        protocol: ftp:FTP,
+        host: ftpHost,
+        port: ftpPort,
+        auth: {
+            credentials: {
+                username: ftpUsername,
+                password: ftpPassword
+            }
+        }
+    };
+
+    ftp:Client|error ftpClient = new (ftpConfig);
+
+    if ftpClient is error {
+        log:printError(string `✗ FAILED to connect to FTP server: ${ftpClient.message()}`);
+        return ftpClient;
+    }
+
+    log:printInfo("✓ FTP connection established");
+
+    // Test FTP operations - list directory
+    log:printInfo(string `Listing directory: ${ftpTestPath}`);
+    time:Utc listStartTime = time:utcNow();
+
+    ftp:FileInfo[]|error fileList = ftpClient->list(ftpTestPath);
+
+    if fileList is error {
+        log:printError(string `✗ FAILED to list FTP directory: ${fileList.message()}`);
+        return fileList;
+    }
+
+    decimal listLatency = time:utcDiffSeconds(time:utcNow(), listStartTime);
+    log:printInfo(string `✓ SUCCESS: Directory listed in ${(listLatency * 1000).toString()}ms`);
+    log:printInfo(string `Found ${fileList.length()} items in directory`);
+
+    // Log some file details
+    if fileList.length() > 0 {
+        log:printInfo("Sample files/directories:");
+        int maxDisplay = fileList.length() < 5 ? fileList.length() : 5;
+        foreach int i in 0 ..< maxDisplay {
+            ftp:FileInfo fileInfo = fileList[i];
+            log:printInfo(string `  ${fileInfo.name} (${fileInfo.size} bytes)`);
+        }
+        if fileList.length() > 5 {
+            log:printInfo(string `  ... and ${fileList.length() - 5} more items`);
+        }
+    }
+
+    log:printInfo("✓ FTP operations completed successfully");
+
+    decimal totalFtpTime = time:utcDiffSeconds(time:utcNow(), ftpStartTime);
+    log:printInfo(string `
+========================================
+FTP Health Check completed successfully
+Total execution time: ${(totalFtpTime * 1000).toString()}ms
+========================================
+`);
+
+    return;
+}
+
+// Database Health Check Function
+function performDatabaseHealthCheck() returns error? {
+    log:printInfo(string `
+========================================
+Database Health Check
 ========================================
 Host:               ${host}
 Port:               ${port}
@@ -97,10 +187,47 @@ Username:           ${username}
     decimal totalTime = time:utcDiffSeconds(time:utcNow(), startTime);
     log:printInfo(string `
 ========================================
-Task completed successfully
+Database Health Check completed successfully
 Total execution time: ${(totalTime * 1000).toString()}ms
 ========================================
 `);
+
+    return;
+}
+
+public function main() returns error? {
+    log:printInfo("=== Health Check Task Started ===");
+
+    time:Utc overallStartTime = time:utcNow();
+    boolean hasErrors = false;
+
+    // Perform Database Health Check
+    error? dbResult = performDatabaseHealthCheck();
+    if dbResult is error {
+        log:printError(string `Database health check failed: ${dbResult.message()}`);
+        hasErrors = true;
+    }
+
+    // Perform FTP Health Check if enabled
+    if enableFtpCheck {
+        error? ftpResult = performFtpHealthCheck();
+        if ftpResult is error {
+            log:printError(string `FTP health check failed: ${ftpResult.message()}`);
+            hasErrors = true;
+        }
+    } else {
+        log:printInfo("FTP health check is disabled (enableFtpCheck=false)");
+    }
+
+    // Overall summary
+    decimal overallTime = time:utcDiffSeconds(time:utcNow(), overallStartTime);
+    
+    if hasErrors {
+        log:printError(string `Health Check Task FAILED - Total execution time: ${(overallTime * 1000).toString()}ms`);
+        return error("One or more health checks failed");
+    }
+
+    log:printInfo(string `All Health Checks PASSED ✓ - Total execution time: ${(overallTime * 1000).toString()}ms`);
 
     return;
 }

@@ -18,6 +18,20 @@ dependencies = [
 
 [[package]]
 org = "ballerina"
+name = "ftp"
+version = "2.13.0"
+dependencies = [
+	{org = "ballerina", name = "io"},
+	{org = "ballerina", name = "jballerina.java"},
+	{org = "ballerina", name = "log"},
+	{org = "ballerina", name = "task"}
+]
+modules = [
+	{org = "ballerina", packageName = "ftp", moduleName = "ftp"}
+]
+
+[[package]]
+org = "ballerina"
 name = "io"
 version = "1.8.0"
 dependencies = [
@@ -81,6 +95,15 @@ modules = [
 
 [[package]]
 org = "ballerina"
+name = "task"
+version = "2.7.0"
+dependencies = [
+	{org = "ballerina", name = "jballerina.java"},
+	{org = "ballerina", name = "time"}
+]
+
+[[package]]
+org = "ballerina"
 name = "time"
 version = "2.7.0"
 dependencies = [
@@ -121,6 +144,7 @@ org = "wso2"
 name = "db_healthcheck_task"
 version = "0.1.0"
 dependencies = [
+	{org = "ballerina", name = "ftp"},
 	{org = "ballerina", name = "log"},
 	{org = "ballerina", name = "sql"},
 	{org = "ballerina", name = "time"},

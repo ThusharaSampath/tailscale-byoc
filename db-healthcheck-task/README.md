@@ -1,19 +1,20 @@
-# Database Health Check Task
+# Health Check Task
 
-A simple Ballerina task that performs a one-time database health check and exits.
+A Ballerina task that performs database and FTP server health checks and exits.
 
 ## Overview
 
-This task:
-1. Connects to a Microsoft SQL Server database
-2. Executes a health check query
-3. Logs the results (success or failure)
-4. Closes the connection and exits
+This task can:
+1. Connect to a Microsoft SQL Server database and execute a health check query
+2. Connect to an FTP server and test connectivity by listing a directory
+3. Log detailed results (success or failure) for each check
+4. Exit with appropriate status code
 
 ## Configuration
 
-Edit `Config.toml` to configure the database connection:
+Edit `Config.toml` to configure the health checks:
 
+### Database Configuration
 ```toml
 host = "your-database-host"
 port = 1433
@@ -22,17 +23,30 @@ password = "your-password"
 database = "your-database"
 ```
 
+### FTP Configuration
+```toml
+enableFtpCheck = true  # Set to true to enable FTP health checks
+ftpHost = "ftp.example.com"
+ftpPort = 21
+ftpUsername = "ftpuser"
+ftpPassword = "ftppassword"
+ftpTestPath = "/"  # Path to test (e.g., "/" or "/uploads")
+```
+
 ## Running the Task
 
 ```bash
 # Build the project
 bal build
 
-# Run the task
+# Run the task (database check only)
 bal run
 
-# Or run with custom config
-bal run -- --host=localhost --port=1433 --username=sa --password=yourpass --database=master
+# Run with FTP check enabled
+bal run -- --enableFtpCheck=true --ftpHost=ftp.example.com --ftpUsername=user --ftpPassword=pass
+
+# Run with all custom config
+bal run -- --host=localhost --port=1433 --username=sa --password=yourpass --database=master --enableFtpCheck=true --ftpHost=ftp.example.com --ftpPort=21 --ftpUsername=ftpuser --ftpPassword=ftppass --ftpTestPath=/
 ```
 
 ## Output
@@ -44,10 +58,14 @@ The task will log:
 - Query results (database version, server name, etc.)
 - Total execution time
 
-### Success Example:
+### Success Example (Database + FTP):
 ```
+╔════════════════════════════════════════╗
+║   Health Check Task Started            ║
+╚════════════════════════════════════════╝
+
 ========================================
-Database Health Check Task
+Database Health Check
 ========================================
 Host:               172.16.20.88
 Port:               1433
@@ -60,27 +78,58 @@ time=... level=INFO message="Executing health check query..."
 time=... level=INFO message="✓ SUCCESS: Query executed in 45.23ms"
 time=... level=INFO message="Query Results: {...}"
 time=... level=INFO message="✓ Database connection closed"
-time=... level=INFO message="
 ========================================
-Task completed successfully
+Database Health Check completed successfully
 Total execution time: 150.45ms
 ========================================
-"
+
+========================================
+FTP Server Health Check
+========================================
+Host:               ftp.example.com
+Port:               21
+Username:           ftpuser
+Test Path:          /
+========================================
+time=... level=INFO message="Attempting to connect to FTP server..."
+time=... level=INFO message="✓ FTP connection established"
+time=... level=INFO message="Listing directory: /"
+time=... level=INFO message="✓ SUCCESS: Directory listed in 23.45ms"
+time=... level=INFO message="Found 5 items in directory"
+time=... level=INFO message="Sample files/directories:"
+time=... level=INFO message="  file1.txt (1024 bytes)"
+time=... level=INFO message="  file2.pdf (2048 bytes)"
+time=... level=INFO message="✓ FTP operations completed successfully"
+========================================
+FTP Health Check completed successfully
+Total execution time: 89.67ms
+========================================
+
+╔════════════════════════════════════════╗
+║   All Health Checks PASSED ✓           ║
+║   Total execution time: 240.12ms
+╚════════════════════════════════════════╝
 ```
 
 ### Failure Example:
 ```
 time=... level=ERROR message="✗ FAILED to connect to database: Connection refused"
+time=... level=ERROR message="Database health check failed: Connection refused"
+╔════════════════════════════════════════╗
+║   Health Check Task FAILED             ║
+║   Total execution time: 50.23ms
+╚════════════════════════════════════════╝
 ```
 
 ## Use Cases
 
 This task is suitable for:
-- Kubernetes CronJobs for periodic database health checks
+- Kubernetes CronJobs for periodic database and FTP health checks
 - CI/CD pipeline health verification
-- Scheduled database connectivity monitoring
-- Quick database connection testing
+- Scheduled connectivity monitoring for databases and file servers
+- Quick connection testing for databases and FTP servers
 - Container readiness/liveness probes
+- Monitoring VPN/Tailscale connectivity to internal resources
 
 ## Deployment
 

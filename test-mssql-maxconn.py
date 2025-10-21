@@ -135,13 +135,14 @@ def test_max_connections(server, database, username, password, port=1433, max_co
             if batch_end < max_threads:
                 time.sleep(batch_delay)
 
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Test interrupted by user")
+    
+    finally:
         # Wait for all threads to complete
         print(f"\n--- Waiting for all connections to close (up to {hold_time + 10}s) ---")
         for thread in threads:
             thread.join(timeout=hold_time + 10)
-
-    except KeyboardInterrupt:
-        print("\n\n⚠️  Test interrupted by user")
 
     # Final statistics
     elapsed_total = int(time.time() - start_time)

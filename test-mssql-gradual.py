@@ -2,7 +2,7 @@
 """
 Gradual SQL Server connection test - creates connections one by one
 This helps identify exactly when the connection limit is hit
-Usage: python3 test-mssql-gradual.py <server> <database> <username> <password> [max_connections] [delay]
+Usage: python3 test-mssql-gradual.py <server> <database> <username> <password> [port] [max_connections] [delay]
 """
 
 import sys
@@ -17,14 +17,14 @@ class ConnectionTracker:
         self.successful = 0
         self.failed = 0
 
-    def add_connection(self, conn_id, server, database, username, password):
+    def add_connection(self, conn_id, server, database, username, password, port=1433):
         """Attempt to create and store a new connection"""
         try:
             print(f"\n[{conn_id:3d}] Attempting connection...")
             start_time = time.time()
 
             conn = pymssql.connect(
-                server=server,
+                server=f"{server}:{port}",
                 database=database,
                 user=username,
                 password=password,
@@ -83,12 +83,12 @@ class ConnectionTracker:
         print(f"✓ Closed {closed} connections")
         return closed
 
-def test_gradual_connections(server, database, username, password, max_connections=100, delay=2):
+def test_gradual_connections(server, database, username, password, port=1433, max_connections=100, delay=2):
     """Create connections gradually one by one"""
     print("=" * 70)
     print("=== Gradual Connection Test ===")
     print("=" * 70)
-    print(f"Target:              {server}")
+    print(f"Target:              {server}:{port}")
     print(f"Database:            {database}")
     print(f"Username:            {username}")
     print(f"Max connections:     {max_connections}")
@@ -109,7 +109,7 @@ def test_gradual_connections(server, database, username, password, max_connectio
 
     try:
         for i in range(1, max_connections + 1):
-            success = tracker.add_connection(i, server, database, username, password)
+            success = tracker.add_connection(i, server, database, username, password, port)
 
             if not success:
                 if first_failure is None:
@@ -185,19 +185,21 @@ def test_gradual_connections(server, database, username, password, max_connectio
 
 if __name__ == "__main__":
     if len(sys.argv) < 5:
-        print("Usage: python3 test-mssql-gradual.py <server> <database> <username> <password> [max_connections] [delay]")
+        print("Usage: python3 test-mssql-gradual.py <server> <database> <username> <password> [port] [max_connections] [delay]")
         print()
         print("Arguments:")
         print("  server          - Database server IP/hostname")
         print("  database        - Database name")
         print("  username        - Database username")
         print("  password        - Database password")
+        print("  port            - Database port (default: 1433)")
         print("  max_connections - Maximum connections to attempt (default: 100)")
         print("  delay           - Seconds between connections (default: 2)")
         print()
-        print("Example:")
+        print("Examples:")
         print("  python3 test-mssql-gradual.py 172.16.20.88 master sa MyPass123")
-        print("  python3 test-mssql-gradual.py 172.16.20.88 master sa MyPass123 150 1")
+        print("  python3 test-mssql-gradual.py 172.16.20.88 master sa MyPass123 1433")
+        print("  python3 test-mssql-gradual.py 172.16.20.88 master sa MyPass123 1433 150 1")
         print()
         print("This test:")
         print("  - Creates connections one by one (not in parallel)")
@@ -210,7 +212,8 @@ if __name__ == "__main__":
     database = sys.argv[2]
     username = sys.argv[3]
     password = sys.argv[4]
-    max_connections = int(sys.argv[5]) if len(sys.argv) > 5 else 100
-    delay = float(sys.argv[6]) if len(sys.argv) > 6 else 2
+    port = int(sys.argv[5]) if len(sys.argv) > 5 else 1433
+    max_connections = int(sys.argv[6]) if len(sys.argv) > 6 else 100
+    delay = float(sys.argv[7]) if len(sys.argv) > 7 else 2
 
-    sys.exit(test_gradual_connections(server, database, username, password, max_connections, delay))
+    sys.exit(test_gradual_connections(server, database, username, password, port, max_connections, delay))
