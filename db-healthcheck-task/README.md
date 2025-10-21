@@ -23,15 +23,19 @@ password = "your-password"
 database = "your-database"
 ```
 
-### FTP Configuration
+### FTP/SFTP Configuration
 ```toml
 enableFtpCheck = true  # Set to true to enable FTP health checks
 ftpHost = "ftp.example.com"
-ftpPort = 21
+ftpPort = 21  # Use 21 for FTP, 22 for SFTP (automatically detected)
 ftpUsername = "ftpuser"
 ftpPassword = "ftppassword"
 ftpTestPath = "/"  # Path to test (e.g., "/" or "/uploads")
 ```
+
+**Note:** The protocol is automatically detected based on the port:
+- Port **21** = FTP
+- Port **22** = SFTP (SSH File Transfer Protocol)
 
 ### Google Chat Notification Configuration
 ```toml

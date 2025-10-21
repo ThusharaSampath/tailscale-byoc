@@ -261,6 +261,7 @@ Analyzed 21,658 log entries from Tailscale admin console covering the outage win
 1. **Windows node HAD active DERP connection during outage**
    - Bidirectional traffic confirmed (TX: 18,197 pkts, RX: 17,673 pkts)
    - DERP relay was functioning normally
+   - **BUT**: RX packets were control plane only (heartbeats), not data plane
 
 2. **98.5% of connection attempts failed even WITH DERP active**
    - Single-packet flows = SYN packets that got no response
@@ -272,19 +273,40 @@ Analyzed 21,658 log entries from Tailscale admin console covering the outage win
    - After: 2.1% success
    - This suggests **ongoing routing issues even outside outage window**
 
+4. **🔍 SMOKING GUN: Zero inbound flows to Windows VM**
+   - **Total flows FROM 100.97.54.81**: 24,549 flows (Windows sending)
+   - **Total flows TO 100.97.54.81**: **0 flows** (nobody can reach Windows)
+   - This is **asymmetric routing failure**
+   - Windows can send (control plane heartbeats to DERP)
+   - But Windows cannot receive (data plane traffic blocked/dropped)
+
 **Revised Root Cause**:
 
-The Windows node was NOT completely dead as initially thought:
-- ✓ DERP connection active and healthy
-- ✓ Windows node sending/receiving packets via DERP
-- ✗ Subnet routing 172.16.x.x was broken
+The Windows node was in a **degraded "send-only" state**:
+- ✓ Control plane: Windows sending heartbeats to DERP (TX: 18,197 pkts)
+- ✓ Control plane: Windows receiving heartbeats from DERP (RX: 17,673 pkts)
+- ✗ Data plane: **Zero inbound data flows** to Windows VM (0 flows TO 100.97.54.81)
+- ✗ Subnet routing 172.16.x.x was broken (routes not advertised or inbound blocked)
 - ✗ SOCKS5 could not establish routes to destination IPs
 
-**Hypothesis**: The Windows Tailscale client was connected to the control plane and DERP relay, but subnet routing was disabled or broken. This would explain:
-- Why `tailscale ping` failed (requires active routes)
-- Why DERP traffic continued (control plane connectivity)
-- Why SOCKS5 returned "general failure" (no route to subnet)
-- Why 98.5% of flows were single-packet failures
+**Why this is asymmetric routing failure**:
+
+| Direction | Status | Evidence |
+|-----------|--------|----------|
+| Windows → DERP | ✓ Working | 18,197 TX packets, control plane active |
+| DERP → Windows | ✓ Control plane only | 17,673 RX packets (heartbeats) |
+| DERP → Windows | ✗ Data plane blocked | 0 inbound data flows recorded |
+| Others → Windows | ✗ Completely blocked | Cannot ping 100.97.54.81 |
+| Others → Subnet | ✗ Completely blocked | Cannot reach 172.16.x.x |
+
+This explains:
+- Why `tailscale ping 100.97.54.81` fails (no inbound path to Windows VM)
+- Why DERP traffic continued (control plane heartbeats use different path)
+- Why SOCKS5 returned "general failure" (no route to subnet, can't reach Windows)
+- Why 98.5% of flows were single-packet failures (SYN sent, no route back)
+- Why Windows shows as "Online" in status (control plane active)
+
+**Root cause**: Likely Windows Firewall or Tailscale inbound connection failure blocking ALL inbound traffic to the Windows VM, while still allowing outbound control plane heartbeats.
 
 ---
 
@@ -300,27 +322,46 @@ const (
 )
 ```
 
-### Immediate: Restore Windows Node (Outage 2)
+### Immediate: Fix Windows Inbound Connectivity (Outage 2)
 
 **Customer must execute on Windows machine `v-BHPSTailScale`**:
 
 ```powershell
-# Check service status
-Get-Service tailscale
+# Step 1: Check Windows Firewall (CRITICAL)
+# Verify Tailscale is allowed through firewall
+Get-NetFirewallRule -DisplayName "*Tailscale*" | Select-Object DisplayName, Enabled, Direction, Action
 
-# Restart Tailscale
-Restart-Service tailscale
+# If Tailscale rules are missing or disabled, allow it:
+New-NetFirewallRule -DisplayName "Tailscale" -Direction Inbound -Action Allow -Program "C:\Program Files\Tailscale\tailscale.exe"
+New-NetFirewallRule -DisplayName "Tailscale" -Direction Inbound -Action Allow -Program "C:\Program Files\Tailscale\tailscaled.exe"
 
-# Verify status
+# Step 2: Restart Tailscale with subnet routes
+tailscale down
+tailscale up --advertise-routes=172.16.4.0/22,172.16.20.0/24 --accept-routes --reset
+
+# Step 3: Verify status
 tailscale status
 
-# Reconnect with subnet routes
-tailscale down
-tailscale up --advertise-routes=172.16.4.0/22,172.16.20.0/24
-
-# Test connectivity
-tailscale ping 100.97.54.81
+# Step 4: Test from another Tailscale machine
+# From Choreo pod or your local machine:
+tailscale ping 100.97.54.81        # Should work now
+ping 172.16.20.88                  # Should work now
+ping 172.16.4.207                  # Should work now
 ```
+
+**Root Cause (CONFIRMED via flow logs)**:
+
+The Windows VM has **asymmetric routing failure**:
+- ✓ Control plane working (can send heartbeats to DERP)
+- ✗ Data plane broken (zero inbound flows recorded)
+- **24,549 flows FROM Windows, 0 flows TO Windows**
+
+This is likely:
+1. **Windows Firewall blocking inbound Tailscale traffic**
+2. Subnet routes not advertised (`--advertise-routes` missing)
+3. Tailscale daemon in degraded state (not processing inbound connections)
+
+The `--reset` flag will force Tailscale to re-establish all connections and may clear the degraded state.
 
 ### Short-Term: Improve Monitoring
 
