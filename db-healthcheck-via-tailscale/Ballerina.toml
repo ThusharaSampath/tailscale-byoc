@@ -12,6 +12,11 @@ org = "ballerinax"
 name = "mssql"
 version = "1.14.0"
 
+[[dependency]]
+org = "ballerina"
+name = "ftp"
+version = "2.13.0"
+
 [[platform.java17.dependency]]
 groupId = "com.microsoft.sqlserver"
 artifactId = "mssql-jdbc"

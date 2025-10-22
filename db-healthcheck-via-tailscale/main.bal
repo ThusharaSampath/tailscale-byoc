@@ -1,10 +1,11 @@
+import ballerina/ftp;
 import ballerina/http;
 import ballerina/log;
 import ballerina/sql;
 import ballerina/time;
 import ballerinax/mssql;
 
-// Configurable parameters
+// Database Configurable parameters
 configurable string host = "localhost";
 configurable int port = 1433;
 configurable string username = "sa";
@@ -13,7 +14,88 @@ configurable string database = "master";
 configurable int poolSize = 10;
 configurable decimal minIntervalSeconds = 1.0;
 configurable decimal maxIntervalSeconds = 5.0;
-configurable int testDurationMinutes = 10;
+
+// SFTP Configurable parameters
+configurable boolean enableFtpCheck = ?;
+configurable string ftpHost = "localhost";
+configurable int ftpPort = 22;
+configurable string ftpUsername = "ftpuser";
+configurable string ftpPassword = ?;
+configurable string ftpTestPath = "/";
+
+// Google Chat Notification Configuration
+configurable boolean enableChatNotification = ?;
+configurable string googleChatWebhookUrl = "";
+
+// Function to send Google Chat notification
+function sendGoogleChatNotification(string message) returns error? {
+    if !enableChatNotification || googleChatWebhookUrl == "" {
+        return;
+    }
+
+    log:printInfo("Sending notification to Google Chat...");
+
+    http:Client chatClient = check new (googleChatWebhookUrl);
+
+    json payload = {
+        "text": message
+    };
+
+    http:Response|error response = chatClient->post("", payload);
+
+    if response is error {
+        log:printError(string `Failed to send Google Chat notification: ${response.message()}`);
+        return response;
+    }
+
+    if response.statusCode == 200 {
+        log:printInfo("✓ Notification sent to Google Chat successfully");
+    } else {
+        log:printWarn(string `Google Chat notification returned status: ${response.statusCode}`);
+    }
+
+    return;
+}
+
+// Database Health Check Function
+function performDatabaseHealthCheck(mssql:Client dbClient) returns error? {
+    stream<record {}, sql:Error?> resultStream = dbClient->query(`SELECT 1 as result`);
+    error? closeResult = resultStream.close();
+    if closeResult is error {
+        return closeResult;
+    }
+    return;
+}
+
+// SFTP Health Check Function
+function performSftpHealthCheck() returns error? {
+    if !enableFtpCheck {
+        return; // Skip if disabled
+    }
+
+    // Determine protocol based on port
+    ftp:Protocol protocol = ftpPort == 22 ? ftp:SFTP : ftp:FTP;
+
+    ftp:ClientConfiguration ftpConfig = {
+        protocol: protocol,
+        host: ftpHost,
+        port: ftpPort,
+        auth: {
+            credentials: {
+                username: ftpUsername,
+                password: ftpPassword
+            }
+        }
+    };
+
+    ftp:Client|error ftpClient = new (ftpConfig);
+
+    if ftpClient is error {
+        return ftpClient;
+    }
+
+    return;
+}
 
 // Statistics tracking
 type Statistics record {|
@@ -40,7 +122,7 @@ Database:           ${database}
 Username:           ${username}
 Pool Size:          ${poolSize}
 Query Interval:     ${minIntervalSeconds}s - ${maxIntervalSeconds}s
-Test Duration:      ${testDurationMinutes} minutes
+Mode:               Continuous (long-running server)
 ========================================
 `);
 
@@ -63,15 +145,8 @@ Test Duration:      ${testDurationMinutes} minutes
     // Start HTTP service for health check endpoint
     _ = check startHealthCheckService(dbClient);
 
-    // Run test workload
-    check runTestWorkload(dbClient, testDurationMinutes);
-
-    // Print final statistics
-    printFinalStatistics();
-
-    // Close connection pool
-    check dbClient.close();
-    log:printInfo("✓ Connection pool closed");
+    // Run continuous workload (never stops)
+    check runTestWorkload(dbClient);
 
     return;
 }
@@ -86,14 +161,46 @@ function startHealthCheckService(mssql:Client dbClient) returns error? {
 function httpService(mssql:Client dbClient) returns error? {
     http:Service healthService = service object {
         resource function get health() returns http:Ok|http:InternalServerError {
-            log:printInfo("Received health check request");
-            stream<record {}, sql:Error?> resultStream = dbClient->query(`SELECT 1 as result`);
-            error? closeResult = resultStream.close();
-            if closeResult is error {
-                log:printError(string `Health check failed: ${closeResult.message()}`);
+            log:printInfo("Received health check request (database + SFTP)");
+            
+            // Check both database and SFTP health before responding
+            error? dbResult = performDatabaseHealthCheck(dbClient);
+            error? sftpResult = enableFtpCheck ? performSftpHealthCheck() : ();
+            
+            // Build combined error message if any check failed
+            string[] failures = [];
+            
+            if dbResult is error {
+                log:printError(string `Database health check failed: ${dbResult.message()}`);
+                failures.push(string `*Database:* ${dbResult.message()}`);
+            } else {
+                log:printInfo("✓ Database health check succeeded");
+            }
+            
+            if sftpResult is error {
+                log:printError(string `SFTP health check failed: ${sftpResult.message()}`);
+                failures.push(string `*SFTP (${ftpHost}:${ftpPort}):* ${sftpResult.message()}`);
+            } else if enableFtpCheck {
+                log:printInfo("✓ SFTP health check succeeded");
+            }
+            
+            // If any check failed, send notification and return error
+            if failures.length() > 0 {
+                string failuresText = "";
+                foreach string failure in failures {
+                    failuresText += failure + "\n";
+                }
+                
+                string notificationMessage = string `🔴 *Health Check Failed*\n\n${failuresText}\n*Timestamp:* ${time:utcToString(time:utcNow())}`;
+                error? notificationResult = sendGoogleChatNotification(notificationMessage);
+                if notificationResult is error {
+                    log:printWarn("Failed to send failure notification to Google Chat");
+                }
+                
                 return http:INTERNAL_SERVER_ERROR;
             }
-            log:printInfo("Health check succeeded");
+            
+            log:printInfo("✓ All health checks succeeded");
             return http:OK;
         }
 
@@ -108,34 +215,72 @@ function httpService(mssql:Client dbClient) returns error? {
     return;
 }
 
-// Run test workload with random intervals
-function runTestWorkload(mssql:Client dbClient, int durationMinutes) returns error? {
-    time:Utc endTime = time:utcAddSeconds(time:utcNow(), durationMinutes * 60);
+// Run continuous workload (infinite loop)
+function runTestWorkload(mssql:Client dbClient) returns error? {
     int queryCount = 0;
 
-    log:printInfo("Starting test workload...");
+    log:printInfo("Starting continuous workload...");
 
-    while <decimal>time:utcDiffSeconds(endTime, time:utcNow()) > 0d {
+    while true {
         queryCount += 1;
 
-        // Execute health check query
+        // Execute database health check query
         time:Utc queryStart = time:utcNow();
-        error? queryResult = executeHealthQuery(dbClient, queryCount);
-        decimal latency = time:utcDiffSeconds(time:utcNow(), queryStart);
+        error? dbResult = executeHealthQuery(dbClient, queryCount);
+        decimal dbLatency = time:utcDiffSeconds(time:utcNow(), queryStart);
 
-        // Update statistics
-        stats.totalQueries += 1;
-        if queryResult is error {
+        // Perform SFTP health check if enabled (every 10 queries)
+        error? sftpResult = ();
+        decimal sftpLatency = 0.0;
+        
+        if enableFtpCheck {
+            time:Utc sftpStart = time:utcNow();
+            sftpResult = performSftpHealthCheck();
+            sftpLatency = time:utcDiffSeconds(time:utcNow(), sftpStart);
+        }
+
+        // Build combined error message if any check failed
+        string[] failures = [];
+        
+        if dbResult is error {
+            failures.push(string `*Database:* ${dbResult.message()}`);
+            log:printError(string `[Query ${queryCount}] ✗ DB FAILED - ${dbResult.message()}`);
+            
             stats.failedQueries += 1;
-            string errorMsg = queryResult.message();
+            string errorMsg = dbResult.message();
             if !stats.errors.some(e => e == errorMsg) {
                 stats.errors.push(errorMsg);
             }
-            log:printError(string `[Query ${queryCount}] ✗ FAILED - ${errorMsg}`);
         } else {
             stats.successfulQueries += 1;
-            stats.queryLatencies.push(latency);
-            log:printInfo(string `[Query ${queryCount}] ✓ SUCCESS - ${(latency * 1000).toString()}ms`);
+            stats.queryLatencies.push(dbLatency);
+            log:printInfo(string `[Query ${queryCount}] ✓ DB SUCCESS - ${(dbLatency * 1000).toString()}ms`);
+        }
+        
+        if enableFtpCheck {
+            if sftpResult is error {
+                failures.push(string `*SFTP (${ftpHost}:${ftpPort}):* ${sftpResult.message()}`);
+                log:printError(string `[Query ${queryCount}] ✗ SFTP FAILED - ${sftpResult.message()}`);
+            } else {
+                log:printInfo(string `[Query ${queryCount}] ✓ SFTP SUCCESS - ${(sftpLatency * 1000).toString()}ms`);
+            }
+        }
+
+        // Update statistics
+        stats.totalQueries += 1;
+
+        // Send combined notification if any check failed
+        if failures.length() > 0 {
+            string failuresText = "";
+            foreach string failure in failures {
+                failuresText += failure + "\n";
+            }
+            
+            string notificationMessage = string `🔴 *Health Check Failed (Workload)*\n\n${failuresText}\n*Query:* ${queryCount}\n*Timestamp:* ${time:utcToString(time:utcNow())}`;
+            error? notificationResult = sendGoogleChatNotification(notificationMessage);
+            if notificationResult is error {
+                log:printWarn("Failed to send failure notification to Google Chat");
+            }
         }
 
         // Print periodic statistics
@@ -151,9 +296,6 @@ function runTestWorkload(mssql:Client dbClient, int durationMinutes) returns err
             // Busy wait
         }
     }
-
-    log:printInfo("Test workload completed");
-    return;
 }
 
 // Execute a health check query
