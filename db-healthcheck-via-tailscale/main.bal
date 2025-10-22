@@ -73,8 +73,8 @@ function performSftpHealthCheck() returns error? {
         return; // Skip if disabled
     }
 
-    // Determine protocol based on port
-    ftp:Protocol protocol = ftpPort == 22 ? ftp:SFTP : ftp:FTP;
+    // Determine protocol based on port (22 or 2022 = SFTP, 21 or 2021 = FTP)
+    ftp:Protocol protocol = ftpPort == 22 || ftpPort == 2022 ? ftp:SFTP : ftp:FTP;
 
     ftp:ClientConfiguration ftpConfig = {
         protocol: protocol,
