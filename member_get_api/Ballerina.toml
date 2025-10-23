@@ -1,0 +1,12 @@
+[package]
+org = "lalaji"
+name = "member_get_api"
+version = "0.1.0"
+
+[build-options]
+sticky = true
+
+[[platform.java11.dependency]]
+groupId = "com.microsoft.sqlserver"
+artifactId = "mssql-jdbc"
+version = "12.4.2.jre11"
