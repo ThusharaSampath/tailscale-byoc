@@ -199,7 +199,7 @@ Username:           ${username}
 
     if resultStream is sql:Error {
         log:printError(string `✗ FAILED to execute query: ${resultStream.message()}`);
-        check dbClient.close();
+        // check dbClient.close();
         return resultStream;
     }
 
@@ -209,13 +209,13 @@ Username:           ${username}
 
     if result is sql:Error {
         log:printError(string `✗ FAILED to fetch query results: ${result.message()}`);
-        check dbClient.close();
+        // check dbClient.close();
         return result;
     }
 
     if result is () {
         log:printError("✗ FAILED: No results returned from query");
-        check dbClient.close();
+        // check dbClient.close();
         return error("No results returned from query");
     }
 
@@ -227,12 +227,13 @@ Username:           ${username}
     log:printInfo(string `Query Results: ${result.value.toString()}`);
 
     // Close database connection
-    error? closeResult = dbClient.close();
-    if closeResult is error {
-        log:printWarn(string `Warning: Failed to close database connection: ${closeResult.message()}`);
-    } else {
-        log:printInfo("✓ Database connection closed");
-    }
+    // error? closeResult = dbClient.close();
+    // if closeResult is error {
+    //     log:printWarn(string `Warning: Failed to close database connection: ${closeResult.message()}`);
+    // } else {
+    //     log:printInfo("✓ Database connection closed");
+    // }
+    log:printInfo("Not closing database connection as per a test");
 
     // Calculate total execution time
     decimal totalTime = time:utcDiffSeconds(time:utcNow(), startTime);
